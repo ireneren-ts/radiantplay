@@ -113,7 +113,7 @@ export const myRegistry: ProjectMeta[] = [
     name: 'Data Cache',
     description: 'ThoughtSpot Data Cache for the product-led motion: the Pulse caching workflow, with the empty states turned into hooks. Query hours in the plan, estimated savings per model and for the org, Cache Model from the list. Layouts, heroes, boxes and scenarios in the settings panel (gear, bottom-left).',
     author: 'Vivek Sahi',
-    lastModified: '2026-11-04',
+    lastModified: '2026-11-05',
     component: DataCache,
     section: 'mine',
     theme: 'global',

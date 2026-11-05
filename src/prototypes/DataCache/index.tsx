@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { NoData } from '@/components';
-import { Shell, NAV_LABELS, type NavBadge } from './components/Shell';
+import { Shell, NAV_LABELS, INSIGHTS_NAV, type NavBadge, type TabKey } from './components/Shell';
+import { HomeView } from './components/HomeView';
 import { ProtoMenu, type PageVersion } from './components/ProtoMenu';
 import type { HookBoxStyle } from './components/HookBoxes';
 import type { HeroStyle, HookLayout, HookBackground, AnimationStyle, IconStyle } from './components/CachingHook';
@@ -26,10 +27,14 @@ import type { DataModel, EstimateInputs } from './types';
  *
  * Started from the Pulse handoff (src/prototypes/NearStore, frozen) as a copy,
  * plus the PLG reference (Data Cache Hook.html, 2 Nov). Created: 2026-11-03
+ *
+ * The Insights tab opens the ThoughtSpot home; the Data tab returns to the last
+ * Data workspace page (Irene, 5 Nov).
  */
 
 type Origin = 'objects' | 'datacache';
 type View =
+  | { kind: 'home' }
   | { kind: 'objects' }
   | { kind: 'datacache' }
   | { kind: 'other'; id: string }
@@ -61,6 +66,23 @@ export const DataCache: React.FC = () => {
   const [view, setView] = useState<View>(() => (params.get('model') ? { kind: 'model', modelId: params.get('model')!, origin: 'objects' } : { kind: 'datacache' }));
   const [hookHighlight] = useState(0);
 
+  // Which sidebar tab the current page lives on. Insights opens Home; Data goes back to
+  // the last Data workspace page (without reopening a settings modal it had open).
+  const tab: TabKey = view.kind === 'home' || (view.kind === 'other' && INSIGHTS_NAV.has(view.id)) ? 'insights' : 'data';
+  const lastDataView = useRef<View>(view);
+  useEffect(() => {
+    if (tab === 'data') lastDataView.current = view;
+  }, [tab, view]);
+  const changeTab = (next: TabKey) => {
+    if (next === tab) return;
+    if (next === 'insights') {
+      setView({ kind: 'home' });
+      return;
+    }
+    const back = lastDataView.current;
+    setView(back.kind === 'model' ? { ...back, openSettings: false } : back);
+  };
+
   const scenario = SCENARIOS.find((s) => s.id === scenarioId) ?? SCENARIOS[0];
   const org = orgs[scenario.org];
   const models = modelsByOrg[org.id];
@@ -76,7 +98,7 @@ export const DataCache: React.FC = () => {
     setView({ kind: 'model', modelId, origin, openSettings });
   };
   const navigate = (id: string) => {
-    if (id === 'objects' || id === 'datacache') setView({ kind: id });
+    if (id === 'home' || id === 'objects' || id === 'datacache') setView({ kind: id });
     else setView({ kind: 'other', id });
   };
   // Learn more will open the documentation page later; for now it goes nowhere (Vivek, 4 Nov).
@@ -106,6 +128,7 @@ export const DataCache: React.FC = () => {
   const activeNav = view.kind === 'model' ? view.origin : view.kind === 'other' ? view.id : view.kind;
 
   const renderContent = () => {
+    if (view.kind === 'home') return <HomeView />;
     if (view.kind === 'datacache' && version !== 'v1' && version !== 'v2') {
       return (
         <DataCacheViewV3
@@ -158,7 +181,7 @@ export const DataCache: React.FC = () => {
       return <DataObjectsView models={models} onOpenModel={(id) => openModel(id, 'objects')} />;
     }
     if (view.kind === 'other') {
-      return <NoData title={NAV_LABELS[view.id] ?? view.id} description="Not part of this prototype. Data objects and DataCache are the pages that are built." />;
+      return <NoData title={NAV_LABELS[view.id] ?? view.id} description="Not part of this prototype. Home, Data objects and DataCache are the pages that are built." />;
     }
     const model = models.find((m) => m.id === view.modelId);
     if (!model) return null;
@@ -184,7 +207,7 @@ export const DataCache: React.FC = () => {
 
   return (
     <>
-      <Shell active={activeNav} onNavigate={navigate} navBadge={navBadge}>
+      <Shell active={activeNav} onNavigate={navigate} tab={tab} onTabChange={changeTab} navBadge={navBadge}>
         {renderContent()}
       </Shell>
       <ProtoMenu version={version} onVersion={setVersion} boxStyle={boxStyle} onBoxStyle={setBoxStyle} hero={hero} onHero={setHero} animation={animation} onAnimation={setAnimation} icon={icon} onIcon={setIcon} layout={layout} onLayout={setLayout} background={background} onBackground={setBackground} navBadge={navBadge} onNavBadge={setNavBadge} titleTag={titleTag} onTitleTag={setTitleTag} planLine={planLine} onPlanLine={setPlanLine} scenario={scenarioId} onScenario={pickScenario} enabled={enabled} onEnabled={setEnabled} limit={limit} onLimit={setLimit} savingForAll={savingForAll} onSavingForAll={setSavingForAll} onJump={jump} onReset={resetScenario} onLockDesign={lockDesign} />
